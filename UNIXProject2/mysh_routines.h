@@ -12,7 +12,8 @@
 int run_cmd(char **arguments);
 char *read_input();
 char **tokenize_line(char *line);
-int pipe_commands(char *cmd1, char *cmd2);
-int redirect_input(char *cmd, char *file);
-int redirect_output(char *cmd1, char *cmd2);
-int expand_command(char *cmd);
+int pipe_commands(char *cmd1, char *cmd2, char **argv1, char **argv2);
+int redirect_input(char *cmd, char *file, char **argv);
+int redirect_output(char *cmd, char *file, char **argv);
+int redirect_in_out(char *cmd, char* a_file, char* b_file, char **argv);
+int expand_command(char *cmd, char **args);

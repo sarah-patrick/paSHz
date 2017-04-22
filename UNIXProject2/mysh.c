@@ -45,7 +45,7 @@ int main(int argc, char **argv)
         free(user_input);
         free(arguments);
         
-    } while (running);
+    } while (!running);
 	
 	return 0;
 }
@@ -103,7 +103,7 @@ int mycd(char **arguments)
             fprintf(stderr, "\"mycd\": failed to change directories\n");
         }
     }
-    return 1;
+    return 0;
 }
 
 /*******************************************************
@@ -126,7 +126,7 @@ int mypwd()
     {
         fprintf(stderr, "error determining current directory\n");
     }
-    return 1;
+    return 0;
 }
 
 /*******************************************************
@@ -136,6 +136,6 @@ int mypwd()
  *******************************************************/
 int myexit()
 {
-    return 0;
+    return 1;
 }
 
