@@ -1,11 +1,18 @@
+/*******************************************************************/
+/* Name: Christina Haynes-Zaragoza	Date: 04/23/17		   */
+/* Class: IntroUnix 			Assignment: project2	   */
+/* Comment: Got alot of help coding myls from the website  */
+/*	    www.annrich.com/cs590/notes/homework1/myls.txt	   */
+/*******************************************************************/
+#include<unistd.h>
 #include<stdlib.h>
 #include<sys/types.h>
 #include<sys/stat.h>
-#include<unistd.h>
 #include<dirent.h>
 #include<stdio.h>
+#include<fcntl.h>
 #include<string.h>
-/*#include<time.h>*/
+#include<time.h>
 #include<pwd.h>
 #include<grp.h>
 
@@ -22,18 +29,20 @@
 /* *              that will hold file    * */ 
 /* * 		  files to be sorted.    * */
 /* **************************************** */
-typedef struct z_file {
- char  name[1000]; //files 
- struct stat buf; // inode for the file 
+typedef struct z_file
+{
+	char  name[1000]; //files 
+	struct stat buf; // inode for the file 
 } file;
-/*typedef struct file FILE; // suppose to be some kind of shortcut*/ 
+//typedef struct file FILE; // suppose to be some kind of shortcut*/ 
 
 /* *********************** FUNCTION PROTOTYPES ****************** */
 int compare_fileNames();
 int list_permissions();
 int print_long();
 int list_file();
-int myls(); 
+int myls();
+int print_file(char *, char *, struct stat, int, int); 
 /* ********************** MAIN ********************************** */
 int main(int argc, char **argv)
 {
@@ -58,7 +67,7 @@ int main(int argc, char **argv)
 		}   
 	}
 	
-	if(argc == optind)
+	if(argc == optind) /* If no arguments then use . */
 		myls(".", showsize,showlong); 
 	else
 	{
@@ -80,11 +89,12 @@ return 0;
 
 int myls(char *dir, int showsize, int showlong)
 {
-	DIR *dirptr;  		/* pointer to directory*/
+	int i;				/* counter variable     */
+	DIR *dirptr;  		/* pointer to directory */
 	struct dirent *dirstct;	/* directory struct */
 	struct stat sbuf;       /* stst struct*/
-	file *f; 		/* temp ptr to structf*/
-	file **filename; 	/* array of file names*/
+	FILE *f; 		/* temp ptr to structf*/
+	FILE **filename; 	/* array of file names*/
 	int filecounters;       /* counter to keep track of array*/
 	/*int incrament2; 	 second incramentaor for loops*/
 	int total = 0;		/* keep count of the num of blocks n dir*/
@@ -96,19 +106,19 @@ int myls(char *dir, int showsize, int showlong)
 		_exit(1);
 	}
 	
-	if(!S_IDSIR(sbuf.st_mode)) /* if its not a directory simply print*/
+	if(!S_ISDIR(sbuf.st_mode)) /* if its not a directory simply print*/
 	{
-		print_file (dir, NULL,sbuf, showsize, showlong);
+		print_file (dir, NULL, sbuf, showsize, showlong);
 		return(TRUE); 
 	}
 	/*update the name array*/
-	filename = (file **) malloc(sizeof(file *) * MAX_FCOUNT + 1);
+	filename = (FILE **) malloc(sizeof(FILE *) * MAX_FCOUNT + 1);
 	filecounters = 0;
 	
 	if(filename == NULL) 
 	{
 		fprintf(stderr, "Cannot allocate filename array\n");
-		return(False);
+		return(FALSE);
 	}
 	if((dirptr = opendir(dir)) == NULL) /*open file directory*/ 
 	{
@@ -116,24 +126,24 @@ int myls(char *dir, int showsize, int showlong)
 		return(FALSE);
 	} 
 	
-	while((dirstct = readdir(dp)) != NULL) /*read directory and print results*/
+	while((dirstct = readdir(dirptr)) != NULL) /*read directory and print results*/
 	{
 		if(dirstct->d_name[0] == '.')
 			continue;
-		sprintf(fbuf, "%s/%s", dir, dirp->d_name);
+		sprintf(fbuf, "%s/%s", dir, dirstct->d_name);
 
 		if(lstat(fbuf, &sbuf) < 0)
 		{
-			perro("stat call failed");
+			perror("stat call failed");
 			return(FALSE);
 		}
-		if((f = (file *)malloc (sizeof(file))) == NULL)
+		if((f = (FILE *)malloc (sizeof(FILE *))) == NULL)
 		{
 			fprintf(stderr, "cannot malloc filename %s\n", 
 				dirstct->d_name);
 			return(FALSE);
 		}
-		strcpy(f->name, dirp->d_name, dirstct->d_name);
+		strcpy(f->name, dirstct->d_name);
 		f->buf = sbuf;
 		filename[filecounters++] = f;
 		
@@ -147,28 +157,28 @@ int myls(char *dir, int showsize, int showlong)
 		}	
 	}
 	closedir(dirptr);
-	qsort(filename,filecounters,sizeof(file *), cmp_name);
+	qsort(filename,filecounters,sizeof(FILE *), cmp_name);
 	if(strcmp(dir, ".") != 0)
 		printf("%s: \n", dir);
 	if(showlong)
 		printf("total %d\n", total);
 	for(i = 0; i < filecounters; i++)
 	{
-		print_file(filename[i]->name,dir,files[i]->buf, showsize,
+		print_file(filename[i]->name,dir,filename[i]->buf, showsize,
 			   showlong);
 		free(filename[i]);
 	}
 	free(filename);
 }
 /***********************************************************************/
-/* Function Name: list_file                                            */
+/* Function Name: print_file                                            */
 /*								       */
 /* Description: ls style ouput of files				       */ 
 /***********************************************************************/
 int print_file(char *file, char *dir, struct stat buf, int showsize, int showlong)
 {
 	if(showsize)
-		printf("%4d",buf.st_blocks);
+		printf("%4ld",buf.st_blocks);
 	if(showlong)
 		print_long(file, dir,buf);
 	else
@@ -189,7 +199,7 @@ int print_long(char *name, char *dir, struct stat buf)
 
 	char owner[32];
 	char group[32];
-	struct psswd *pw;
+	struct passwd *pw;
 	struct group *gr;
 
 	char mtime[32];
@@ -204,13 +214,17 @@ int print_long(char *name, char *dir, struct stat buf)
 			strcpy(temp,name);
 		if((num = readlink(temp,link,256))>=0)
 		{
-			link[num] = 0
-			sprint(name,"%s->%s",name, link);
+			link[num] = 0;
+			sprintf(name,"%s->%s",name, link);
 		}
 	}
 	get_perm(perm, buf.st_mode);
 	if((pw = getpwuid(buf.st_uid))== NULL)
-		sprintf(owner, "%d", buf.st_gid);
+		sprintf(owner, "%d", buf.st_uid);
+	else
+		strcpy(owner, pw->pw_name);
+	if((gr = getgrgid(buf.st_gid)) == NULL)
+		sprintf(group, "%d", buf.st_gid);
 	else
 		strcpy(group, gr->gr_name);
 
@@ -226,11 +240,13 @@ int print_long(char *name, char *dir, struct stat buf)
 
 	if(S_ISCHR(buf.st_mode)|| S_ISBLK(buf.st_mode))
 	{
-		printf("%s %d %-8s %-9s %3d, %3d %s %s\n", perm, buf.st_nlink, owner, group,major(buf.st_rdev), minor(buf.st_rdev),mtime,name);
+		printf("%s %lud %-8s %-9s %3d, %3d %s %s\n", perm, buf.st_nlink, 
+			   owner, group,major(buf.st_rdev), minor(buf.st_rdev),mtime,name);
 	}
 	else 
 	{
-		printf("%s %d %-8s %-9s %7d %s %s\n", perm, buf.st_nlink, owner, group				, buf.st_size, mtime, name);
+		printf("%s %lud %-8s %-9s %7ld %s %s\n", perm, buf.st_nlink, owner,
+			   group, buf.st_size, mtime, name);
 	}
 }
 /*************************************************************************/
@@ -238,7 +254,7 @@ int print_long(char *name, char *dir, struct stat buf)
 /*      								 */
 /*Description: the development of permissions string for the -l format   */
 /*************************************************************************/
-int list_permissions(char *perm, mode_tm)
+int list_permissions(char *perm, mode_t m)
 {
 	char ftype; 
 	if(S_ISREG(m))
@@ -278,7 +294,7 @@ int list_permissions(char *perm, mode_tm)
 /*							    */
 /* Description: comparison of two file entries 		    */
 /************************************************************/
-compare_fileNames(file **a, file **b)
+int compare_fileNames(file **a, file **b)
 {
 	file *one, *two; 
 	
@@ -287,3 +303,4 @@ compare_fileNames(file **a, file **b)
 	
 	return (strcmp(one->name, two->name));
 }
+
