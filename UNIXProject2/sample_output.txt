@@ -1,9 +1,8 @@
-total 52
--rw-r--r-- 1 forrest forrest   492 Apr 23 13:24 foo.txt
--rwxr-xr-x 1 forrest forrest 18200 Apr 23 13:31 mysh
--rw-r--r-- 1 forrest forrest  4297 Apr 21 11:06 mysh.c
--rw-r--r-- 1 forrest forrest 11950 Apr 23 13:31 mysh_routines.c
--rw-r--r-- 1 forrest forrest   592 Apr 23 12:41 mysh_routines.h
--rw-r--r-- 1 forrest forrest     0 Apr 23 13:18 new_foo.txt
--rw-r--r-- 1 forrest forrest   492 Apr 23 13:20 sample_input.txt
--rw-r--r-- 1 forrest forrest     0 Apr 23 13:31 sample_output.txt
+31982437 foo.txt
+31981571 mysh
+31982442 mysh.c
+31981656 mysh_routines.c
+31981653 mysh_routines.h
+31981658 new_foo.txt
+31981659 sample_input.txt
+31981652 sample_output.txt
