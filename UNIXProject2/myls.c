@@ -218,7 +218,7 @@ int print_long(char *name, char *dir, struct stat buf)
 			sprintf(name,"%s->%s",name, link);
 		}
 	}
-	get_perm(perm, buf.st_mode);
+	list_permissions(perm, buf.st_mode);
 	if((pw = getpwuid(buf.st_uid))== NULL)
 		sprintf(owner, "%d", buf.st_uid);
 	else
