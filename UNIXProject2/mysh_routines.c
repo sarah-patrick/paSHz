@@ -31,17 +31,20 @@ char **tokenize_line(char *line)
 	char **tokens = malloc(buffer_size * sizeof(char*));
 	char *token = NULL;
 	 
-	if (!tokens) {
+	if (!tokens)
+	{
 		fprintf(stderr, "mysh: error allocating memory for tokens\n");
 		exit(1);
 	}
 	
 	token = strtok(line, MYSH_TOKEN_DELIMITER);
-	while (token != NULL) {
+	while (token != NULL)
+	{
 		tokens[position] = token;
 		position++;
 	
-		if (position >= buffer_size) {
+		if (position >= buffer_size)
+		{
 			buffer_size += MYSH_TOKEN_BUFFER_SIZE;
 			tokens = realloc(tokens, buffer_size * sizeof(char*));
 			if (!tokens) {
@@ -66,7 +69,7 @@ char **tokenize_line(char *line)
 int run_cmd(char **arguments)
 {
 	if (arguments == NULL)
-		return -1;
+		exit(1);
             
     pid_t pid;
     int status_of_child;
@@ -97,37 +100,80 @@ int run_cmd(char **arguments)
 		if (arguments[m][0] == '<')
 		{
 			io_changer = '<';
-			for (i = 0; i < m; i++) {
+			for (i = 0; i < m; i++)
 				argv1[i] = arguments[i];
+			
+			/* check to see if a file name exists after < */
+			m++;
+			if (arguments[m] == NULL)
+			{
+				fprintf(stderr, "no file provied to read from\n");
+				return 0;
 			}
 			
-			/* get the file name and then break out of loop */
+			/* get the name of the file to be redirected */
 			i = 0;
-			while (arguments[m+1][i] != '\0')
+			while (arguments[m][i] != '\0')
 			{
-				a_file_name[i] = arguments[m+1][i];
+				a_file_name[i] = arguments[m][i];
 				i++;
 			}
 			a_file_name[i] = '\0';
-			break;
+			
+			/* check to see if redirection to output file needed */
+			m++;
+			if (arguments[m] != NULL)
+			{
+				if (arguments[m][0] == '>')
+				{
+					io_changer = 'b';
+					
+					/* Make sure the user entered a file name for */
+					/* input redirection.                         */
+					m++;
+					if (arguments[m] == NULL)
+					{
+						fprintf(stderr, "no file provided to write to\n");
+						return 0;
+					}
+					
+					/* get the name of the file to be written to */
+					i = 0;
+					while (arguments[m][i] != '\0')
+					{
+						b_file_name[i] = arguments[m][i];
+						i++;		
+					}
+					b_file_name[i] = '\0';
+				}
+			
+				break;
+			}
 		}
-		
 		/* if there is a '>' in the input line */
 		else if (arguments[m][0] == '>')
 		{
 			io_changer = '>';
-			for (i = 0; i < m; i++) {
+			for (i = 0; i < m; i++)
 				argv1[i] = arguments[i];
-			}
 			
 			/* get the file name and then break out of loop */
-			i = 0;
-			while (arguments[m+1][i] != '\0')
+			m++;
+			if (arguments[m] == NULL)
 			{
-				b_file_name[i] = arguments[m+1][i];
+				fprintf(stderr, "no file provided to write to\n");
+				return 0;
+			} 
+
+			/* get the name of the file to be written to */
+			i = 0;
+			while (arguments[m][i] != '\0')
+			{
+				b_file_name[i] = arguments[m][i];
 				i++;
 			}
 			b_file_name[i] = '\0';
+			
 			break;
 		}
 		
@@ -204,6 +250,12 @@ int run_cmd(char **arguments)
             /* redirect stdout */
             return_value = redirect_output(arguments[0], b_file_name, argv1);
             break;
+            
+        case 'b':
+			/* redirect stdout and stdin */
+			return_value = redir_in_out(arguments[0], argv1,
+										a_file_name, b_file_name);
+			break;
         
         case '$':
             /* expand: pipe but in the opposite direction */
@@ -323,9 +375,56 @@ int redirect_output(char *cmd, char *file, char **argv)
     return ret_val;
 }
 
+/*******************************************************
+ *
+ *******************************************************/
 int redir_in_out(char *cmd, char **argv, char *a_file, char *b_file)
 {
-	
+	int status;
+    int ret_val;
+    int fd;
+    int newfd;
+    pid_t pid;
+    
+    pid = fork();
+    if (pid == 0)
+    {
+		/* redirect input */
+        fd = open(a_file, O_RDONLY);
+        newfd = dup2(fd, 0);
+        if (newfd != 0) {
+			fprintf(stderr, "Could not duplicate fd to 0.\n");
+			ret_val = -1;
+		}
+		else
+        {
+			close(fd);
+			
+			/* redirect output */
+			close(1);
+			fd = creat(b_file, 0644);
+        
+			if (fd < 0) {
+				fprintf(stderr, "error opening file descripter 1\n");
+				ret_val = -1;
+			}
+			
+			/* execute the command */
+			execvp(cmd, argv);
+			fprintf(stderr, "execvp\n");
+			ret_val = -1;
+        }
+    }
+    else if (pid > 0)
+    {
+        wait(&status);
+        ret_val = WEXITSTATUS(status);
+    }
+    else
+    {
+        fprintf(stderr, "error forking a process");
+        ret_val = -1;
+    }
 }
 
 /*******************************************************
@@ -336,7 +435,7 @@ int pipe_commands(char *cmd1, char* cmd2, char **argv1, char **argv2)
     pid_t pid;
     int pp[2];
     int status;
-    int ret_val = -1;
+    int ret_val;
     
     /* get a pipe */
     if (pipe(pp) < 0) {
@@ -362,17 +461,18 @@ int pipe_commands(char *cmd1, char* cmd2, char **argv1, char **argv2)
 		
 		close(pp[0]);		/* stdin is duped, close pipe   */
 		
-		if (execvp(cmd2, argv2) == -1) {
+		if (execvp(cmd2, argv2) == -1)
+		{
 			fprintf(stderr, "error running %s\n", cmd2);
-			if (cmd2[0] =='$') {
-			fprintf(stderr, "%s should be the second argument\n", cmd2);
+			if (cmd2[0] =='$') 
+			{
+				fprintf(stderr, "%s should be the second argument\n", cmd2);
 			}
 			return -1;
 		}
 		
 		wait(&status);
 		ret_val = WEXITSTATUS(status);
-		ret_val = -1;
 	}
 	else					/* child will execute cmd1      */
 	{
@@ -391,20 +491,5 @@ int pipe_commands(char *cmd1, char* cmd2, char **argv1, char **argv2)
         }
     }
     
-    return 1;
+    return ret_val;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
