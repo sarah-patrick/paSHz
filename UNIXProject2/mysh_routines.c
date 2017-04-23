@@ -1,10 +1,12 @@
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <fcntl.h>
-#include <sys/wait.h>
+/*******************************************************
+ * File Name: mysh_routines.c
+ * 
+ * This file contains function implementations called in
+ * the main method of mysh.c. It implements functions that
+ * reading of user input, tokenize that input, and running
+ * a command(s) via forking a process and I/O redirection 
+ * and piping.
+ *******************************************************/
 #include "mysh_routines.h"
 
 /*******************************************************
@@ -81,10 +83,10 @@ int run_cmd(char **arguments)
     /* variables for exexcvp */
     char **argv1 = malloc(buf_size * sizeof(char*));
     char **argv2 = malloc(buf_size * sizeof(char*));
-    char a_file_name[BUFSIZ];
-    char b_file_name[BUFSIZ];
-    char exp_command[BUFSIZ];
-    char command2[BUFSIZ];
+    char a_file_name[MYSH_TOKEN_BUFFER_SIZE];
+    char b_file_name[MYSH_TOKEN_BUFFER_SIZE];
+    char exp_command[MYSH_TOKEN_BUFFER_SIZE];
+    char command2[MYSH_TOKEN_BUFFER_SIZE];
     
     /* check for I/O redirection, expansion, or piping from arguments   */
     /* parse the arguments into two sets of command line args if needed */
@@ -133,6 +135,8 @@ int run_cmd(char **arguments)
 		else if (arguments[m][0] == '$')
 		{
 			io_changer = '$';
+			
+			/* get the name of the command to be extracted */ 
 			n = 1;
 			i = 0;
 			while (arguments[m][n] != '\0')
@@ -145,7 +149,14 @@ int run_cmd(char **arguments)
 				n++;
 			}
 			exp_command[i] = '\0';
-			argv1[0] = exp_command;
+			
+			/* get command line arguments for the two commands */
+			argv1[0] = arguments[0];
+			argv1[1] = NULL;
+			argv2[0] = exp_command;
+			argv2[i] = NULL;
+
+			break;
 		}
 		
 		/* if there is a '|' in the input line */
@@ -195,7 +206,9 @@ int run_cmd(char **arguments)
             break;
         
         case '$':
-            /* expand */
+            /* expand: pipe but in the opposite direction */
+            return_value = pipe_commands(exp_command, arguments[0], argv2,
+										 argv1);
             break;
             
         case '|':
@@ -310,6 +323,11 @@ int redirect_output(char *cmd, char *file, char **argv)
     return ret_val;
 }
 
+int redir_in_out(char *cmd, char **argv, char *a_file, char *b_file)
+{
+	
+}
+
 /*******************************************************
  *
  *******************************************************/
@@ -345,7 +363,10 @@ int pipe_commands(char *cmd1, char* cmd2, char **argv1, char **argv2)
 		close(pp[0]);		/* stdin is duped, close pipe   */
 		
 		if (execvp(cmd2, argv2) == -1) {
-			fprintf(stderr, "error running %s", cmd2);
+			fprintf(stderr, "error running %s\n", cmd2);
+			if (cmd2[0] =='$') {
+			fprintf(stderr, "%s should be the second argument\n", cmd2);
+			}
 			return -1;
 		}
 		
@@ -365,7 +386,7 @@ int pipe_commands(char *cmd1, char* cmd2, char **argv1, char **argv2)
         close(pp[1]);
         
         if (execvp(cmd1, argv1) == -1) {
-            fprintf(stderr, "error running %s", cmd1);
+            fprintf(stderr, "error running %s\n", cmd1);
             ret_val = -1;
         }
     }
