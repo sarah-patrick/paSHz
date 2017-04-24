@@ -3,11 +3,14 @@ CFLAGS=
 DEPS = mysh_routines.h
 OBJ = mysh.o mysh_routines.o
 
-%.o: %.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS)
-
-make: $(OBJ)
+make : $(OBJ)
 	gcc -o mysh $^ $(CFLAGS)
+
+mysh.o : mysh.c $(DEPS)
+	cc -c mysh.c
+
+mysh_routines.o : mysh_routines.c $(DEPS)
+	cc -c mysh_routines.c
 
 .PHONY: clean
 
